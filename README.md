@@ -8,19 +8,21 @@
 
 ## 📁 Структура проекту
 
-fraud-detection/
-├── src/
-│   ├── features.py         # Інженерія ознак
-│   ├── train.py            # Тренування моделі
-│   ├── inference.py        # Інференс та пояснення
-│   ├── api.py              # FastAPI сервіс
-│   └── streamlit_app.py    # Веб-інтерфейс
-├── scripts/
-│   └── sample_data.py      # Генерація тестових даних
-├── models/                 # Збережені моделі
-├── data/                   # Дані (в .gitignore)
-├── requirements.txt        # Залежності
-└── README.md
+
+features.py         # Інженерія ознак
+
+train.py            # Тренування моделі
+
+inference.py        # Інференс та пояснення
+
+api.py              # FastAPI сервіс
+
+streamlit_app.py    # Веб-інтерфейс
+
+sample_data.py      # Генерація тестових даних
+
+requirements.txt        # Залежності
+
 
 ## 🔧 Основні компоненти
 

@@ -1,98 +1,62 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import Dict, List
-import uvicorn
 from inference import get_detector
+import uvicorn
 
 app = FastAPI(title="Fraud Detection API")
 
 
 class Transaction(BaseModel):
-    user_id: str = Field(..., description="ID користувача")
-    amount: float = Field(..., ge=0, description="Сума транзакції")
-    transaction_type: str = Field(..., description="Тип транзакції: ATM | Online | POS | QR | Transfer")
-    merchant_category: str = Field(..., description="Категорія мерчанта")
-    country: str = Field(..., description="Код країни (2 літери)")
-    hour: int = Field(..., ge=0, le=23, description="Година транзакції (0–23)")
-    device_risk_score: float = Field(..., ge=0.0, le=1.0, description="Ризик-скор пристрою (0–1)")
-    ip_risk_score: float = Field(..., ge=0.0, le=1.0, description="Ризик-скор IP-адреси (0–1)")
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "user_id": "363",
-                "amount": 4922.59,
-                "transaction_type": "ATM",
-                "merchant_category": "Travel",
-                "country": "TR",
-                "hour": 12,
-                "device_risk_score": 0.99,
-                "ip_risk_score": 0.95
-            }
-        }
-    }
+    user_id: str
+    amount: float = Field(..., ge=0)
+    transaction_type: str
+    merchant_category: str
+    country: str
+    hour: int = Field(..., ge=0, le=23)
+    device_risk_score: float = Field(..., ge=0, le=1)
+    ip_risk_score: float = Field(..., ge=0, le=1)
 
 
 class FraudResponse(BaseModel):
     fraud_probability: float
     decision: str
     risk_level: str
-    top_features: Dict[str, float]
+    top_features: dict[str, float]
     explanation: str
 
 
-@app.on_event("startup")
-async def startup_event():
+def detector():
     try:
-        get_detector()
-        print("API запущено. Модель завантажена.")
+        return get_detector()
     except FileNotFoundError:
-        print("УВАГА: Модель не знайдена!")
+        raise HTTPException(503, "Модель не знайдена.")
     except Exception as e:
-        print(f"Помилка завантаження моделі: {e}")
+        raise HTTPException(500, str(e))
 
 
 @app.get("/")
 async def root():
-    return {
-        "message": "Fraud Detection API",
-        "endpoints": ["/score", "/batch_score", "/health", "/docs"]
-    }
+    return {"message": "Fraud Detection API"}
 
 
 @app.get("/health")
-async def health_check():
-    try:
-        get_detector()
-        return {"status": "healthy", "model_loaded": True}
-    except FileNotFoundError:
-        return {"status": "model_missing", "model_loaded": False,
-                "message": "Модель не знайдена."}
-    except Exception as e:
-        return {"status": "unhealthy", "model_loaded": False, "error": str(e)}
+async def health():
+    detector()
+    return {"status": "healthy"}
 
 
 @app.post("/score", response_model=FraudResponse)
-async def score_transaction(transaction: Transaction):
-    try:
-        return FraudResponse(**get_detector().predict_single(transaction.model_dump()))
-    except FileNotFoundError:
-        raise HTTPException(status_code=503, detail="Модель не знайдена.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Помилка обробки: {e}")
+async def score(tx: Transaction):
+    return detector().predict_single(tx.model_dump())
 
 
 @app.post("/batch_score")
-async def batch_score(transactions: List[Transaction]):
+async def batch(transactions: list[Transaction]):
     if not transactions:
-        raise HTTPException(status_code=400, detail="Список транзакцій порожній")
-    try:
-        results = get_detector().predict_batch([tx.model_dump() for tx in transactions])
-        return {"results": results, "count": len(results)}
-    except FileNotFoundError:
-        raise HTTPException(status_code=503, detail="Модель не знайдена.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Помилка пакетної обробки: {e}")
+        raise HTTPException(400, "Порожній список")
+
+    results = detector().predict_batch([t.model_dump() for t in transactions])
+    return {"results": results, "count": len(results)}
 
 
 if __name__ == "__main__":
