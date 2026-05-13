@@ -1,11 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="78630baf-b31f-44f8-9387-04113a51d935" name="Changes" comment="" />
+    <list default="true" id="78630baf-b31f-44f8-9387-04113a51d935" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/test.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/features.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/features.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/inference.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/inference.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/streamlit_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/streamlit_app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/train.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 0
@@ -21,7 +33,9 @@
     "Python.train.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "ai.playground.ignore.import.keys.banner.in.settings": "true",
+    "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
     "last_opened_file_path": "C:/Yn1wertyk/dyploma",
     "nodejs_package_manager_path": "npm",
@@ -74,7 +88,7 @@
       <workItem from="1776271160358" duration="3749000" />
       <workItem from="1776275909929" duration="1618000" />
       <workItem from="1776280607766" duration="686000" />
-      <workItem from="1778064291565" duration="355000" />
+      <workItem from="1778064291565" duration="2878000" />
     </task>
     <servers />
   </component>

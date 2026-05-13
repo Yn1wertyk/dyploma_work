@@ -1,76 +1,41 @@
 import joblib
 import pandas as pd
-import numpy as np
 import shap
 import os
-from typing import Dict, Any, Optional  # Optional використовується у get_detector
-
+from typing import Dict, Any, Optional
 from features import build_features
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "fraud_model.pkl")
 
 
 class FraudDetector:
-    """
-    Детектор фінансових махінацій на основі навченої LightGBM-моделі.
-
-    Очікувані поля транзакції:
-        user_id, amount, transaction_type, merchant_category,
-        country, hour, device_risk_score, ip_risk_score
-    """
-
     def __init__(self, model_path: str = MODEL_PATH):
         if not os.path.exists(model_path):
-            raise FileNotFoundError(
-                f"Модель не знайдена: {model_path}\n"
-                f"Спочатку запустіть тренування: python src/train.py"
-            )
+            raise FileNotFoundError(f"Модель не знайдена: {model_path}")
 
         try:
             self.model_data = joblib.load(model_path)
             self.model = self.model_data["model"]
             self.features = self.model_data["features"]
-            # Поріг, знайдений під час тренування (max F1); fallback = 0.5
             self.threshold = self.model_data.get("threshold", 0.5)
-            # Агрегати по user_id зі всього тренувального датасету
             self.user_stats = self.model_data.get("user_stats", None)
             self.explainer = shap.TreeExplainer(self.model)
-            print(f"Модель завантажена: {model_path}")
-            print(f"Кількість ознак: {len(self.features)}")
-            print(f"Поріг прийняття рішення: {self.threshold:.4f}")
+            print(f"Модель завантажена: {model_path}\nКількість ознак: {len(self.features)}\nПоріг прийняття рішення: {self.threshold:.4f}")
         except Exception as e:
             raise RuntimeError(f"Помилка завантаження моделі: {e}")
 
-    def predict_single(
-        self,
-        transaction: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """
-        Прогнозування для однієї транзакції.
-
-        Args:
-            transaction: словник з полями транзакції
-
-        Returns:
-            Словник: fraud_probability, decision, risk_level, top_features, explanation
-        """
+    def predict_single(self, transaction: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            tx_df = pd.DataFrame([transaction])
-            # Якщо є збережена статистика по юзерах — використовуємо її,
-            # щоб агрегати при інференсі відповідали тим, що бачила модель
-            X, _ = build_features(tx_df, single=True, user_stats=self.user_stats)
+            X, _ = build_features(pd.DataFrame([transaction]), single=True, user_stats=self.user_stats)
 
-            # Вирівнюємо колонки з тими, що очікує модель
             for col in self.features:
                 if col not in X.columns:
                     X[col] = 0
             X_features = X[self.features]
 
-            # Прогноз
             proba_array = self.model.predict_proba(X_features)
             fraud_proba = float(proba_array[0, 1]) if proba_array.shape[1] > 1 else float(proba_array[0, 0])
 
-            # SHAP-пояснення
             shap_values = self.explainer.shap_values(X_features)
             if isinstance(shap_values, list) and len(shap_values) > 1:
                 feature_shap = shap_values[1][0]
@@ -85,7 +50,6 @@ class FraudDetector:
             )
 
         except Exception as e:
-            print(f"Помилка прогнозування: {e}")
             return {
                 "fraud_probability": 0.0,
                 "decision": "ERROR",
@@ -94,9 +58,8 @@ class FraudDetector:
                 "explanation": f"Помилка обробки транзакції: {e}"
             }
 
-        # Бізнес-рішення на основі збереженого оптимального порогу
         high_threshold = self.threshold
-        review_threshold = self.threshold * 0.6  # нижча зона — на перевірку
+        review_threshold = self.threshold * 0.6
 
         if fraud_proba >= high_threshold:
             decision, risk_level = "BLOCK", "HIGH"
@@ -106,24 +69,11 @@ class FraudDetector:
             decision, risk_level = "ALLOW", "LOW"
 
         return {
-            "fraud_probability": fraud_proba,
-            "decision": decision,
-            "risk_level": risk_level,
-            "top_features": top_contributions,
+            "fraud_probability": fraud_proba, "decision": decision, "risk_level": risk_level, "top_features": top_contributions,
             "explanation": self._generate_explanation(top_contributions, fraud_proba)
         }
 
     def predict_batch(self, transactions: list) -> list:
-        """
-        Пакетне прогнозування: обробляє всі транзакції разом одним викликом build_features,
-        щоб агрегати рахувались коректно по всьому батчу.
-
-        Args:
-            transactions: список словників з полями транзакцій
-
-        Returns:
-            Список словників з результатами (fraud_probability, decision, risk_level, ...)
-        """
         try:
             batch_df = pd.DataFrame(transactions)
             X, _ = build_features(batch_df, single=True, user_stats=self.user_stats)
@@ -162,7 +112,6 @@ class FraudDetector:
 
         for i, fraud_proba in enumerate(fraud_probas):
             fraud_proba = float(fraud_proba)
-
             feature_shap = all_shap[i] if all_shap.ndim > 1 else all_shap
             contributions = dict(zip(self.features, feature_shap))
             top_contributions = dict(
@@ -204,7 +153,6 @@ class FraudDetector:
         return " ".join(explanations)
 
 
-# --- Singleton для FastAPI ---
 _detector: Optional[FraudDetector] = None
 
 

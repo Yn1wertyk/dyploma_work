@@ -3,20 +3,13 @@ import numpy as np
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
-
-from sklearn.model_selection import GroupKFold
-from sklearn.metrics import (
-    average_precision_score,
-    precision_recall_curve,
-    classification_report,
-)
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import average_precision_score, precision_recall_curve, classification_report
 from lightgbm import LGBMClassifier
-
 from features import build_features, compute_user_stats
 
 RANDOM_STATE = 42
 N_FOLDS = 5
-
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.join(SRC_DIR, "..")
 DEFAULT_DATA_PATH = os.path.join(PROJECT_DIR, "data", "synthetic_fraud_dataset.csv")
@@ -36,24 +29,17 @@ def train_model(data_path: str = DEFAULT_DATA_PATH, target_col: str = "is_fraud"
     print(f"Рядків: {len(df)}, колонки: {list(df.columns)}")
 
     if target_col not in df.columns:
-        raise ValueError(f"Цільова колонка '{target_col}' відсутня.")
-
-    # 🔥 ВАЖЛИВО: user_id як string
-    df["user_id"] = df["user_id"].astype(str)
+        raise ValueError(f"Цільова колонка '{target_col}' відсутня. Доступні: {list(df.columns)}")
 
     y_full = df[target_col].values
-    groups = df["user_id"].values
-
     fraud_rate = y_full.mean()
-    print(f"Частка фроду: {fraud_rate:.4f}")
+    print(f"Частка фроду: {fraud_rate:.4f}  ({y_full.sum()} / {len(y_full)})")
 
-    # ✅ GroupKFold замість StratifiedKFold
-    gkf = GroupKFold(n_splits=N_FOLDS)
-
-    ap_scores = []
-    thresholds = []
-    models = []
-    feature_names = []
+    skf = StratifiedKFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+    ap_scores: list[float] = []
+    thresholds: list[float] = []
+    models: list[LGBMClassifier] = []
+    feature_names: list[str] = []
 
     lgbm_params = dict(
         n_estimators=1000,
@@ -71,21 +57,15 @@ def train_model(data_path: str = DEFAULT_DATA_PATH, target_col: str = "is_fraud"
         verbose=-1,
         n_jobs=-1,
     )
-
     print(f"\nscale_pos_weight = {lgbm_params['scale_pos_weight']}")
-    print(f"\nКрос-валідація (GroupKFold, {N_FOLDS} фолдів)...")
+    print(f"\nКрос-валідація (StratifiedKFold, {N_FOLDS} фолдів)...")
 
-    for fold, (train_idx, val_idx) in enumerate(gkf.split(df, y_full, groups)):
+    for fold, (train_idx, val_idx) in enumerate(skf.split(df, y_full)):
         print(f"\n--- Фолд {fold + 1}/{N_FOLDS} ---")
-
         df_train = df.iloc[train_idx].copy()
         df_val = df.iloc[val_idx].copy()
-
-        # ✅ агрегати тільки з train
         fold_user_stats = compute_user_stats(df_train)
-
-        # ✅ І train, і val використовують ОДНІ І ТІ САМІ stats
-        X_train, y_train = build_features(df_train, user_stats=fold_user_stats)
+        X_train, y_train = build_features(df_train)
         X_val, y_val = build_features(df_val, user_stats=fold_user_stats)
 
         if fold == 0:
@@ -93,10 +73,8 @@ def train_model(data_path: str = DEFAULT_DATA_PATH, target_col: str = "is_fraud"
             print(f"Кількість ознак: {len(feature_names)}")
 
         model = LGBMClassifier(**lgbm_params)
-
         model.fit(
-            X_train,
-            y_train,
+            X_train, y_train,
             eval_set=[(X_val, y_val)],
             callbacks=[
                 __import__("lightgbm").early_stopping(50, verbose=False),
@@ -107,15 +85,13 @@ def train_model(data_path: str = DEFAULT_DATA_PATH, target_col: str = "is_fraud"
         y_proba = model.predict_proba(X_val)[:, 1]
         ap = average_precision_score(y_val, y_proba)
         thresh = _best_threshold(y_val.values, y_proba)
-
         ap_scores.append(ap)
         thresholds.append(thresh)
         models.append(model)
 
         y_pred = (y_proba >= thresh).astype(int)
-
-        print(f"PR-AUC: {ap:.4f} | Поріг: {thresh:.4f}")
-        print(classification_report(y_val, y_pred))
+        print(f"PR-AUC: {ap:.4f}  |  Оптимальний поріг: {thresh:.4f}")
+        print(classification_report(y_val, y_pred, target_names=["Normal", "Fraud"]))
 
     best_idx = int(np.argmax(ap_scores))
     best_model = models[best_idx]
@@ -123,13 +99,11 @@ def train_model(data_path: str = DEFAULT_DATA_PATH, target_col: str = "is_fraud"
 
     print(f"\nНайкращий фолд: {best_idx + 1}")
     print(f"PR-AUC: {np.mean(ap_scores):.4f} ± {np.std(ap_scores):.4f}")
+    print(f"Збережений поріг: {best_threshold:.4f}")
 
-    # ✅ для продакшену — агрегати по ВСЬОМУ train датасету
     full_user_stats = compute_user_stats(df)
-
     os.makedirs(MODELS_DIR, exist_ok=True)
-
-    model_path = os.path.join(MODELS_DIR, "fraud_model.pkl")
+    model_out_path = os.path.join(MODELS_DIR, "fraud_model.pkl")
 
     joblib.dump(
         {
@@ -138,31 +112,29 @@ def train_model(data_path: str = DEFAULT_DATA_PATH, target_col: str = "is_fraud"
             "threshold": best_threshold,
             "user_stats": full_user_stats,
             "pr_auc_scores": ap_scores,
+            "best_fold": best_idx,
+            "feature_importance": dict(zip(feature_names, best_model.feature_importances_)),
         },
-        model_path,
+        model_out_path,
     )
-
-    print(f"\nМодель збережена: {model_path}")
-
+    print(f"\nМодель збережена: {model_out_path}")
     plot_feature_importance(best_model, feature_names)
-
     return best_model, ap_scores
 
 
-def plot_feature_importance(model, feature_names, top_n=20):
+def plot_feature_importance(model: LGBMClassifier, feature_names, top_n: int = 20):
     importance = model.feature_importances_
-    indices = np.argsort(importance)[::-1][:top_n]
-
+    indices = np.argsort(importance)[::-1][: min(top_n, len(feature_names))]
     plt.figure(figsize=(12, 8))
+    plt.title(f"Топ-{len(indices)} найважливіших ознак")
     plt.bar(range(len(indices)), importance[indices])
-    plt.xticks(range(len(indices)), [feature_names[i] for i in indices], rotation=45)
+    plt.xticks(range(len(indices)), [feature_names[i] for i in indices], rotation=45, ha="right")
     plt.tight_layout()
-
-    path = os.path.join(MODELS_DIR, "feature_importance.png")
-    plt.savefig(path)
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    plot_path = os.path.join(MODELS_DIR, "feature_importance.png")
+    plt.savefig(plot_path, dpi=150, bbox_inches="tight")
     plt.close()
-
-    print(f"Графік збережено: {path}")
+    print(f"Графік збережено: {plot_path}")
 
 
 if __name__ == "__main__":

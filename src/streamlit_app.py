@@ -1,33 +1,21 @@
 import streamlit as st
 import pandas as pd
 import requests
-import json
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 
-st.set_page_config(
-    page_title="Fraud Detection System",
-    page_icon="🔍",
-    layout="wide"
-)
-
+st.set_page_config(page_title="Fraud Detection System", page_icon="🔍", layout="wide")
 st.title("Система виявлення фінансових махінацій")
 st.markdown("---")
 
 API_URL = "http://localhost:8000"
-
 TRANSACTION_TYPES = ["ATM", "Online", "POS", "QR", "Transfer"]
-MERCHANT_CATEGORIES = ["Clothing", "Electronics", "Food", "Gambling", "Grocery",
-                       "Travel", "Utilities", "Other"]
+MERCHANT_CATEGORIES = ["Clothing", "Electronics", "Food", "Gambling", "Grocery", "Travel", "Utilities", "Other"]
 COUNTRIES = ["UA", "US", "GB", "DE", "FR", "PL", "IT", "TR", "NG", "IN", "RU", "CN", "PK", "Other"]
-
-# Очікувані колонки нового датасету (для пакетного завантаження)
-REQUIRED_COLUMNS = [
-    "user_id", "amount", "transaction_type", "merchant_category",
-    "country", "hour", "device_risk_score", "ip_risk_score"
-]
+REQUIRED_COLUMNS = ["user_id", "amount", "transaction_type", "merchant_category", "country", "hour",
+                    "device_risk_score", "ip_risk_score"]
 
 
 def call_api(endpoint: str, data: dict | list):
@@ -49,22 +37,11 @@ def call_api(endpoint: str, data: dict | list):
         return None
 
 
-# ---------------------------------------------------------------------------
-# Sidebar
-# ---------------------------------------------------------------------------
 st.sidebar.title("Навігація")
-page = st.sidebar.selectbox(
-    "Оберіть сторінку",
-    ["Перевірка транзакції", "Пакетна обробка", "Аналітика"]
-)
+page = st.sidebar.selectbox("Оберіть сторінку", ["Перевірка транзакції", "Пакетна обробка", "Аналітика"])
 
-# ---------------------------------------------------------------------------
-# Сторінка 1: Перевірка транзакції
-# ---------------------------------------------------------------------------
 if page == "Перевірка транзакції":
     st.header("Перевірка окремої транзакції")
-
-    # Статус API
     st.subheader("Статус API")
     try:
         health = requests.get(f"{API_URL}/health", timeout=5).json()
@@ -110,17 +87,14 @@ if page == "Перевірка транзакції":
 
         if result:
             col1, col2, col3 = st.columns(3)
-
             with col1:
                 fraud_prob = result.get("fraud_probability", 0.0)
                 st.metric("Ймовірність махінації", f"{fraud_prob:.2%}")
-
             with col2:
                 decision = result.get("decision", "UNKNOWN")
                 color_map = {"ALLOW": "green", "REVIEW": "orange", "BLOCK": "red", "UNKNOWN": "gray"}
                 color = color_map.get(decision, "gray")
                 st.markdown(f"**Рішення:** :{color}[{decision}]")
-
             with col3:
                 risk_level = result.get("risk_level", "UNKNOWN")
                 st.markdown(f"**Рівень ризику:** {risk_level}")
@@ -131,28 +105,15 @@ if page == "Перевірка транзакції":
             st.subheader("Найважливіші ознаки")
             top_features = result.get("top_features", {})
             if top_features:
-                features_df = pd.DataFrame(
-                    list(top_features.items()),
-                    columns=["Ознака", "Внесок (SHAP)"]
-                )
-                fig = px.bar(
-                    features_df, x="Внесок (SHAP)", y="Ознака",
-                    orientation="h", title="Внесок ознак у рішення (SHAP)"
-                )
+                features_df = pd.DataFrame(list(top_features.items()), columns=["Ознака", "Внесок (SHAP)"])
+                fig = px.bar(features_df, x="Внесок (SHAP)", y="Ознака", orientation="h",
+                             title="Внесок ознак у рішення (SHAP)")
                 st.plotly_chart(fig, use_container_width=True)
 
-# ---------------------------------------------------------------------------
-# Сторінка 2: Пакетна обробка
-# ---------------------------------------------------------------------------
 elif page == "Пакетна обробка":
     st.header("Пакетна обробка транзакцій")
+    st.info(f"**Формат CSV файлу.** Обов'язкові колонки: `{'`, `'.join(REQUIRED_COLUMNS)}`")
 
-    st.info(
-        f"**Формат CSV файлу.** Обов'язкові колонки: `{'`, `'.join(REQUIRED_COLUMNS)}`\n\n"
-        f"Колонки `transaction_id` та `is_fraud` допускаються, але ігноруються."
-    )
-
-    # Шаблон для завантаження — одразу як download_button, без проміжної кнопки
     sample = {
         "user_id": ["363", "692", "445"],
         "amount": [4922.59, 48.02, 80.53],
@@ -186,8 +147,6 @@ elif page == "Пакетна обробка":
                 st.dataframe(df.head(10))
 
                 if st.button("Обробити всі транзакції", type="primary", key="run_batch"):
-                    # Конвертуємо типи: pandas int64/float64 -> Python int/float,
-                    # щоб JSON-серіалізація та Pydantic-валідація працювали коректно
                     batch_df = df[REQUIRED_COLUMNS].copy()
                     batch_df["user_id"] = batch_df["user_id"].astype(str)
                     batch_df["amount"] = batch_df["amount"].astype(float)
@@ -205,7 +164,6 @@ elif page == "Пакетна обробка":
                             st.warning("Результати порожні")
                         else:
                             results_df = pd.DataFrame(results_list)
-
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
                                 st.metric("Всього", len(results_df))
@@ -221,12 +179,10 @@ elif page == "Пакетна обробка":
 
                             if "decision" in results_df.columns:
                                 counts = results_df["decision"].value_counts()
-                                fig = px.pie(values=counts.values, names=counts.index,
-                                             title="Розподіл рішень")
+                                fig = px.pie(values=counts.values, names=counts.index, title="Розподіл рішень")
                                 st.plotly_chart(fig, use_container_width=True)
 
                             st.dataframe(results_df)
-
                             st.download_button(
                                 label="Завантажити результати",
                                 data=results_df.to_csv(index=False),
@@ -234,16 +190,11 @@ elif page == "Пакетна обробка":
                                 mime="text/csv",
                                 key="download_results"
                             )
-
         except Exception as e:
             st.error(f"Помилка читання файлу: {e}")
 
-# ---------------------------------------------------------------------------
-# Сторінка 3: Аналітика
-# ---------------------------------------------------------------------------
 elif page == "Аналітика":
     st.header("Аналітика системи")
-
     try:
         health = requests.get(f"{API_URL}/health", timeout=5).json()
         if health.get("status") == "healthy":
@@ -253,20 +204,11 @@ elif page == "Аналітика":
     except Exception:
         st.error("API недоступний")
 
-    st.subheader("Демонстраційна статистика")
-    dates = pd.date_range("2024-01-01", periods=30, freq="D")
+    st.subheader("Cтатистика")
+    dates = pd.date_range("2025-01-01", periods=30, freq="D")
     fraud_rates = np.random.default_rng(42).uniform(0.01, 0.05, 30)
-
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=dates, y=fraud_rates, mode="lines+markers",
-                             name="Частота махінацій"))
-    fig.update_layout(
-        title="Динаміка виявлення махінацій",
-        xaxis_title="Дата",
-        yaxis_title="Частота махінацій"
-    )
+    fig.add_trace(go.Scatter(x=dates, y=fraud_rates, mode="lines+markers", name="Частота махінацій"))
+    fig.update_layout(title="Динаміка виявлення махінацій", xaxis_title="Дата", yaxis_title="Частота махінацій")
     st.plotly_chart(fig, use_container_width=True)
 
-# ---------------------------------------------------------------------------
-st.markdown("---")
-st.markdown("**Fraud Detection System v2.0** | Дипломна робота")

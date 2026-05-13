@@ -1,0 +1,28 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="pandas" />
+          <option value="numpy" />
+          <option value="scikit-learn" />
+          <option value="lightgbm" />
+          <option value="xgboost" />
+          <option value="imbalanced-learn" />
+          <option value="shap" />
+          <option value="fastapi" />
+          <option value="uvicorn" />
+          <option value="pydantic" />
+          <option value="streamlit" />
+          <option value="matplotlib" />
+          <option value="seaborn" />
+          <option value="plotly" />
+          <option value="joblib" />
+          <option value="python-multipart" />
+          <option value="requests" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
