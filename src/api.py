@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from inference import get_detector
+from src.inference import get_detector
 import uvicorn
 
 app = FastAPI(title="Fraud Detection API")
