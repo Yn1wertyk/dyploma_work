@@ -74,7 +74,7 @@ if page == "Перевірка транзакції":
             if f := r.get("top_features"):
                 df = pd.DataFrame(f.items(), columns=["Ознака", "SHAP"])
                 st.plotly_chart(px.bar(df, x="SHAP", y="Ознака", orientation="h"),
-                                use_container_width=True)
+                                width='stretch')
 
 elif page == "Пакетна обробка":
     st.header("Пакетна обробка")
@@ -118,7 +118,7 @@ elif page == "Пакетна обробка":
                         st.plotly_chart(
                             px.pie(names=res.decision.value_counts().index,
                                    values=res.decision.value_counts().values),
-                            use_container_width=True
+                            width='stretch'
                         )
 
                         st.dataframe(res)
@@ -145,4 +145,4 @@ else:
     fig = go.Figure(go.Scatter(x=x, y=y, mode="lines+markers"))
     fig.update_layout(title="Динаміка махінацій",
                       xaxis_title="Дата", yaxis_title="Частота")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
