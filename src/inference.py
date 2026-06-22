@@ -2,7 +2,7 @@ import os
 import joblib
 import shap
 import pandas as pd
-from features import build_features
+from src.features import build_features
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "fraud_model.pkl")
 
