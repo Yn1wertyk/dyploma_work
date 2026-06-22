@@ -15,10 +15,21 @@ REQ = ["user_id", "amount", "transaction_type", "merchant_category",
 
 def api(ep, data=None, method="post"):
     try:
-        r = getattr(requests, method)(f"{API}{ep}", json=data, timeout=30)
-        return r.json() if r.ok else st.error(f"{r.status_code}: {r.text}")
+        r = getattr(requests, method)(
+            f"{API}{ep}",
+            json=data,
+            timeout=30
+        )
+
+        if r.ok:
+            return r.json()
+
+        st.error(f"{r.status_code}: {r.text}")
+        return None
+
     except Exception as e:
         st.error(f"API недоступний: {e}")
+        return None
 
 page = st.sidebar.selectbox("Навігація",
                             ["Перевірка транзакції", "Пакетна обробка", "Аналітика"])
@@ -27,7 +38,7 @@ if page == "Перевірка транзакції":
     st.header("Перевірка транзакції")
 
     h = api("/health", method="get")
-    if h and h.get("status") == "healthy":
+    if isinstance(h, dict) and h.get("status") == "healthy":
         st.success("API працює")
     else:
         st.error("API недоступний")
@@ -123,7 +134,7 @@ else:
     st.header("Аналітика")
 
     h = api("/health", method="get")
-    if h and h.get("status") == "healthy":
+    if isinstance(h, dict) and h.get("status") == "healthy":
         st.success("API працює")
     else:
         st.warning("API недоступний")
