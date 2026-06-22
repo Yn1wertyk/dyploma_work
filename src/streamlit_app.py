@@ -6,7 +6,7 @@ st.set_page_config("Fraud Detection System", "🔍", layout="wide")
 st.title("Fraud Detection System")
 st.markdown("---")
 
-API = "https://fraud-api-7kno.onrender.com"
+API = "https://fraud-api.onrender.com"
 TYPES = ["ATM", "Online", "POS", "QR", "Transfer"]
 CATS = ["Clothing", "Electronics", "Food", "Gambling", "Grocery", "Travel", "Utilities", "Other"]
 COUNTRIES = ["UA", "US", "GB", "DE", "FR", "PL", "IT", "TR", "NG", "IN", "RU", "CN", "PK", "Other"]
